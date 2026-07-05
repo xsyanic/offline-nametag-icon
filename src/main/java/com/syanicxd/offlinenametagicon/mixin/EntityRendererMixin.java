@@ -27,8 +27,11 @@ public abstract class EntityRendererMixin {
     @Inject(method = "renderLabelIfPresent", at = @At("HEAD"))
     private void renderBadge(PlayerEntityRenderState state, MatrixStack matrices, OrderedRenderCommandQueue queue, CameraRenderState cameraRenderState, CallbackInfo ci) {
         MinecraftClient client = MinecraftClient.getInstance();
+
+        // only render for current player, you can simply modifiy this to render for other players if you want to
         if (client.player == null || !isCurrentPlayer(state, client)) return;
         
+        // you can ignore all the logic below, I looked at essentials mod code and copied their logic for rendering the nametag
         Text text = state.displayName != null ? state.displayName : state.playerName;
         if (text == null) return;
 
