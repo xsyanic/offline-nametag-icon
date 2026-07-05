@@ -22,6 +22,7 @@ import org.joml.Matrix4f;
 public abstract class EntityRendererMixin {
 
     private static final Identifier BADGE_TEXTURE = Identifier.of(offlinenametagiconMod.MOD_ID, "textures/badge.png");
+    private static final Identifier WHITE_TEXTURE = Identifier.ofVanilla("textures/misc/white.png");
 
     @Inject(method = "renderLabelIfPresent", at = @At("HEAD"))
     private void renderBadge(PlayerEntityRenderState state, MatrixStack matrices, OrderedRenderCommandQueue queue, CameraRenderState cameraRenderState, CallbackInfo ci) {
@@ -31,40 +32,60 @@ public abstract class EntityRendererMixin {
         Text text = state.displayName != null ? state.displayName : state.playerName;
         if (text == null) return;
 
-        int textWidth = client.textRenderer.getWidth(text);
-        float badgeSize = 10.0F;
-        float yOffset = state.height + 0.5F;
+        int textWidth = client.textRenderer.getWidth(text); 
+        float badgeSize = 10.0F; 
+        float yOffset = state.height + 0.5F; 
 
         matrices.push();
         matrices.translate(0.0, yOffset, 0.0);
-
-        // Billboard toward the camera, matching vanilla's label transform.
         matrices.multiply(client.gameRenderer.getCamera().getRotation());
         matrices.scale(-0.025F, -0.025F, 0.025F);
 
         float badgeX = textWidth / 2.0F + 1.0F;
         float badgeY = -badgeSize / 10.0F;
 
-        renderBadgeIcon(matrices, queue, state.light, badgeX, badgeY, badgeSize);
+        renderBadgeIcon(matrices, queue, client, state.light, badgeX, badgeY, badgeSize);
 
         matrices.pop();
     }
 
-    private void renderBadgeIcon(MatrixStack matrices, OrderedRenderCommandQueue queue, int light, float x, float y, float size) {
-        RenderLayer layer = RenderLayers.entityTranslucent(BADGE_TEXTURE);
+    private void renderBadgeIcon(MatrixStack matrices, OrderedRenderCommandQueue queue, MinecraftClient client, int light, float x, float y, float size) {
         int overlay = OverlayTexture.DEFAULT_UV;
+        float padding = 1.5F; // background bleed around the icon, in local quad units
+        int nametagBackgroundColor = getNameTagBackgroundColor(client);
 
+        // Background quad
+        renderQuad(
+            matrices, queue,
+            RenderLayers.entityTranslucent(WHITE_TEXTURE),
+            light, overlay,
+            x, y, size, -0.02F,
+            nametagBackgroundColor
+        );
+
+        // Nametag icon itself
+        renderQuad(
+            matrices, queue,
+            RenderLayers.entityTranslucent(BADGE_TEXTURE),
+            light, overlay,
+            x, y, size, 0.0F,
+            0xFFFFFFFF
+        );
+    }
+
+    private void renderQuad(MatrixStack matrices, OrderedRenderCommandQueue queue, RenderLayer layer,
+                             int light, int overlay, float x, float y, float size, float z, int argbColor) {
         queue.submitCustom(matrices, layer, (entry, buffer) -> {
             Matrix4f matrix = entry.getPositionMatrix();
 
-            buffer.vertex(matrix, x, y + size, 0)
-                .color(0xFFFFFFFF).texture(1, 1).overlay(overlay).light(light).normal(0, 0, 1);
-            buffer.vertex(matrix, x + size, y + size, 0)
-                .color(0xFFFFFFFF).texture(0, 1).overlay(overlay).light(light).normal(0, 0, 1);
-            buffer.vertex(matrix, x + size, y, 0)
-                .color(0xFFFFFFFF).texture(0, 0).overlay(overlay).light(light).normal(0, 0, 1);
-            buffer.vertex(matrix, x, y, 0)
-                .color(0xFFFFFFFF).texture(1, 0).overlay(overlay).light(light).normal(0, 0, 1);
+            buffer.vertex(matrix, x, y + size, z)
+                .color(argbColor).texture(1, 1).overlay(overlay).light(light).normal(0, 0, 1);
+            buffer.vertex(matrix, x + size, y + size, z)
+                .color(argbColor).texture(0, 1).overlay(overlay).light(light).normal(0, 0, 1);
+            buffer.vertex(matrix, x + size, y, z)
+                .color(argbColor).texture(0, 0).overlay(overlay).light(light).normal(0, 0, 1);
+            buffer.vertex(matrix, x, y, z)
+                .color(argbColor).texture(1, 0).overlay(overlay).light(light).normal(0, 0, 1);
         });
     }
 
@@ -75,5 +96,11 @@ public abstract class EntityRendererMixin {
 
         var cameraEntity = client.getCameraEntity();
         return cameraEntity != null && playerState.id == cameraEntity.getId();
+    }
+
+    private int getNameTagBackgroundColor(MinecraftClient client) {
+        float opacity = client.options.getTextBackgroundOpacity(0.25F);
+        int alpha = (int) (opacity * 255.0F) & 0xFF;
+        return (alpha << 24); // black RGB, matched alpha
     }
 }
