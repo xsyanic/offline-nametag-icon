@@ -3,7 +3,8 @@
 	"package": "com.syanicxd.offlinenametagicon.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
-		"EntityRendererMixin"
+		"EntityRendererMixin",
+		"LivingEntityRendererMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
